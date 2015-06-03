@@ -1349,6 +1349,7 @@ update_places (GtkPlacesSidebar *sidebar)
   gchar *tooltip;
   GList *network_mounts, *network_volumes;
   GIcon *new_bookmark_icon;
+  GtkStyleContext *context;
 
   g_print ("update places \n");
   /* save original selection */
@@ -1703,6 +1704,8 @@ update_places (GtkPlacesSidebar *sidebar)
                                          _("New bookmark"), new_bookmark_icon, NULL,
                                          NULL, NULL, NULL, 0,
                                          _("Add a new bookmark"));
+  context = gtk_widget_get_style_context (sidebar->new_bookmark_row);
+  gtk_style_context_add_class (context, "sidebar-new-bookmark-row");
   g_object_unref (new_bookmark_icon);
 
   /* network */
@@ -4173,6 +4176,7 @@ gtk_places_sidebar_init (GtkPlacesSidebar *sidebar)
 {
   GtkTargetList     *target_list;
   gboolean           b;
+  GtkStyleContext *context;
 
   gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (sidebar)), GTK_STYLE_CLASS_SIDEBAR);
 
@@ -4202,6 +4206,9 @@ gtk_places_sidebar_init (GtkPlacesSidebar *sidebar)
 
   /* list box */
   sidebar->list_box = gtk_list_box_new ();
+  context = gtk_widget_get_style_context (sidebar->list_box);
+  gtk_style_context_add_class (context, "sidebar");
+
   gtk_list_box_set_header_func (GTK_LIST_BOX (sidebar->list_box),
                                 list_box_header_func, sidebar, NULL);
   gtk_list_box_set_sort_func (GTK_LIST_BOX (sidebar->list_box),
@@ -4281,6 +4288,8 @@ gtk_places_sidebar_init (GtkPlacesSidebar *sidebar)
                     G_CALLBACK (shell_shows_desktop_changed), sidebar);
   g_object_get (sidebar->gtk_settings, "gtk-shell-shows-desktop", &b, NULL);
   sidebar->show_desktop = b;
+
+  gtk_widget_get_style_context (GTK_WIDGET (sidebar));
 
   /* populate the sidebar */
   update_places (sidebar);

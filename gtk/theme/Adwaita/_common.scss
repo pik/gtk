@@ -2650,7 +2650,7 @@ GtkScrolledWindow {
 
 // transition
 .list-row, list-row.button {
-  transition: all 300ms $ease-out-quad;
+  transition: all 150ms $ease-out-quad;
   &:hover { transition: none; }
 }
 
@@ -2869,7 +2869,8 @@ GtkFileChooserDialog {
 
 .sidebar {
   border: none;
-  background-color: $sidebar_bg_color;
+  // Popover background color
+  background-color: mix($bg_color, $base_color, 50%);
 
   &:backdrop {
     background-color: $backdrop_sidebar_bg_color;
@@ -2886,6 +2887,13 @@ GtkPlacesSidebar.sidebar {
 
   SidebarRow { padding: 0px 8px; }
 
+  @at-root .list-row.button {
+    // Popover menuitem color
+    &:hover {
+      background-color: mix($fg_color, $bg_color, 10%);
+    }
+}
+
   .dnd {
     box-shadow: inset 0px 0px 0px 1px mix($fg_color, $selected_bg_color, 50%);
   }
@@ -2893,7 +2901,11 @@ GtkPlacesSidebar.sidebar {
   // Using margins/padding directly in the SidebarRow
   // will make the animation of the new bookmark row jump
   .sidebar-revealer {
-    padding: 3px 0px;
+    padding: 2px 8px 2px 4px;
+  }
+
+  .sidebar-new-bookmark-row {
+    background-color: darken($sidebar_bg_color, 10%);
   }
 
   .sidebar-icon {
@@ -2906,8 +2918,10 @@ GtkPlacesSidebar.sidebar {
                                     // so istead of "GtkPlacesSidebar.sidebar .sidebar-button.button" [specificity 0,0,3,1]
                                     // the extended selector ".sidebar-button.button" [specificity 0,0,2,0]
 
-    &.image-button { padding: 4px; }
+    &.image-button { padding: 5px; }
 
+    margin-end: 8px;
+    margin-start: 4px;
     @extend .button.flat;
     border-radius: 100%;
     outline-radius: 100%;
