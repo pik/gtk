@@ -221,6 +221,7 @@ typedef enum {
   PLACES_CONNECT_TO_SERVER,
   PLACES_ENTER_LOCATION,
   PLACES_DROP_FEEDBACK,
+  PLACES_BOOKMARK_PLACEHOLDER,
   N_PLACES
 } PlaceType;
 
@@ -319,6 +320,7 @@ struct _SidebarRow
   GVolume *volume;
   GMount *mount;
   gboolean sensitive;
+  gboolean placeholder;
   GtkPlacesSidebar *sidebar;
   GtkWidget *event_box;
   GtkWidget *revealer;
@@ -358,6 +360,7 @@ enum
   PROP_VOLUME,
   PROP_MOUNT,
   PROP_SENSITIVE,
+  PROP_PLACEHOLDER,
   LAST_PROP
 };
 
@@ -442,6 +445,12 @@ sidebar_row_get_property (GObject    *object,
     case PROP_SENSITIVE:
       {
         g_value_set_boolean (value, self->sensitive);
+        break;
+      }
+
+    case PROP_PLACEHOLDER:
+      {
+        g_value_set_boolean (value, self->placeholder);
         break;
       }
 
@@ -578,6 +587,30 @@ sidebar_row_set_property (GObject      *object,
           gtk_style_context_remove_class (style_context, "dim-label");
         else
           gtk_style_context_add_class (style_context, "dim-label");
+
+        break;
+      }
+
+    case PROP_PLACEHOLDER:
+      {
+        self->placeholder = g_value_get_boolean (value);
+        if (self->placeholder)
+          {
+            g_clear_object (&self->icon);
+            g_free (self->label);
+            self->label = NULL;
+            self->ejectable = FALSE;
+            self->section_type = SECTION_BOOKMARKS;
+            self->place_type = PLACES_BOOKMARK_PLACEHOLDER;
+            g_free (self->uri);
+            g_clear_object (&self->drive);
+            g_clear_object (&self->volume);
+            g_clear_object (&self->mount);
+
+            gtk_container_foreach (GTK_CONTAINER (self),
+                                   (GtkCallback) gtk_widget_destroy,
+                                   NULL);
+          }
 
         break;
       }
@@ -765,6 +798,17 @@ sidebar_row_class_init (SidebarRowClass *klass)
                            G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_SENSITIVE,
                                    gParamSpecs [PROP_SENSITIVE]);
+
+  gParamSpecs [PROP_PLACEHOLDER] =
+    g_param_spec_boolean ("placeholder",
+                          _("Placeholder"),
+                          _("Placeholder"),
+                          FALSE,
+                          (G_PARAM_READWRITE |
+                           G_PARAM_CONSTRUCT_ONLY |
+                           G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_PLACEHOLDER,
+                                   gParamSpecs [PROP_PLACEHOLDER]);
 
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gtk/libgtk/ui/sidebarrow.ui");
@@ -1919,8 +1963,12 @@ start_drop_feedback (GtkPlacesSidebar *sidebar,
         sidebar->drop_state = DROP_STATE_NEW_BOOKMARK_ARMED;
     }
 
-  if (check_valid_drop_target (sidebar, row))
-    gtk_list_box_drag_highlight_row (GTK_LIST_BOX (sidebar->list_box), GTK_LIST_BOX_ROW (row));
+  if (!(sidebar->drag_data_received &&
+      sidebar->drag_data_info == DND_SIDEBAR_ROW))
+    {
+    if (check_valid_drop_target (sidebar, row))
+      gtk_list_box_drag_highlight_row (GTK_LIST_BOX (sidebar->list_box), GTK_LIST_BOX_ROW (row));
+    }
 
   update_possible_drop_targets (sidebar, TRUE);
 }
@@ -2028,15 +2076,11 @@ create_placeholder_row (GtkPlacesSidebar *sidebar)
 	GtkStyleContext *context;
 
 	GtkWidget *placeholder_row = g_object_new (SIDEBAR_TYPE_ROW,
-                                            "section-type", SECTION_BOOKMARKS,
-                                            "place-type", PLACES_DROP_FEEDBACK,
-                                            "ejectable", FALSE,
-                                            NULL);
+                                             "placeholder", TRUE,
+                                             NULL);
 
 	context = gtk_widget_get_style_context (placeholder_row);
-	gtk_style_context_add_class (context, "sidebar-placeholder-row");
-
-	gtk_widget_set_size_request (placeholder_row, -1, sidebar->drag_row_height);
+  gtk_style_context_add_class (context, "sidebar-placeholder-row");
 
 	return placeholder_row;
 }
@@ -2102,6 +2146,8 @@ drag_motion_callback (GtkWidget      *widget,
 
       if (row != NULL)
         {
+          gint dest_y, dest_x;
+
           g_object_get (row, "order-index", &row_index, NULL);
           g_object_get (sidebar->row_placeholder, "order-index", &row_placeholder_index, NULL);
           /* We order the bookmarks sections based on the bookmark index that we
@@ -2117,10 +2163,13 @@ drag_motion_callback (GtkWidget      *widget,
            * (that now is before the placeholder) it will just set the index-order
            * of that row, and go again to be positioned before.
            */
-          if (row_index >= row_placeholder_index)
-            row_placeholder_index = row_index + 1;
-          else
             row_placeholder_index = row_index;
+		        gtk_widget_translate_coordinates (widget, GTK_WIDGET (row),
+		                                          x, y,
+		                                          &dest_x, &dest_y);
+
+		        if (dest_y > sidebar->drag_row_height / 2 && row_index > 0)
+			        row_placeholder_index++;
         }
       else
         {
@@ -4017,7 +4066,8 @@ list_box_sort_func (GtkListBoxRow *row1,
             {
               retval = g_utf8_collate (label_1, label_2);
             }
-          else if (place_type_1 == PLACES_BOOKMARK && place_type_2 == PLACES_BOOKMARK)
+          else if ((place_type_1 == PLACES_BOOKMARK || place_type_2 == PLACES_DROP_FEEDBACK) &&
+                   (place_type_1 == PLACES_DROP_FEEDBACK || place_type_2 == PLACES_BOOKMARK))
             {
               retval = index_1 - index_2;
             }
@@ -4034,14 +4084,14 @@ list_box_sort_func (GtkListBoxRow *row1,
            * (that now is before the placeholder) it will just set the index-order
            * of that row, and go again to be positioned before.
            */
-          else if (place_type_1 == PLACES_DROP_FEEDBACK && place_type_2 == PLACES_BOOKMARK)
+          else if (place_type_1 == PLACES_BOOKMARK_PLACEHOLDER && place_type_2 == PLACES_BOOKMARK)
             {
               if (index_1 == index_2)
                 retval =  index_1 - index_2 - 1;
               else
                 retval = index_1 - index_2;
             }
-          else if (place_type_1 == PLACES_BOOKMARK && place_type_2 == PLACES_DROP_FEEDBACK)
+          else if (place_type_1 == PLACES_BOOKMARK && place_type_2 == PLACES_BOOKMARK_PLACEHOLDER)
             {
               if (index_1 == index_2)
                 retval =  index_1 - index_2 + 1;

@@ -3992,6 +3992,8 @@ GtkPlacesSidebar.sidebar SidebarRow {
   padding: 0px 8px; }
 .list-row.button:hover {
   background-color: #4b5150; }
+GtkPlacesSidebar.sidebar .sidebar-placeholder-row {
+  border: solid 1px #215d9c; }
 GtkPlacesSidebar.sidebar .dnd {
   box-shadow: inset 0px 0px 0px 1px #88a6c4; }
 GtkPlacesSidebar.sidebar .sidebar-revealer {

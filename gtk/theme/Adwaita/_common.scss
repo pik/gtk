@@ -2887,12 +2887,17 @@ GtkPlacesSidebar.sidebar {
 
   SidebarRow { padding: 0px 8px; }
 
+  // Preserve everything else of the list-row class
   @at-root .list-row.button {
     // Popover menuitem color
     &:hover {
       background-color: mix($fg_color, $bg_color, 10%);
     }
-}
+  }
+
+  .sidebar-placeholder-row {
+    border: solid 1px $selected_bg_color;
+  }
 
   .dnd {
     box-shadow: inset 0px 0px 0px 1px mix($fg_color, $selected_bg_color, 50%);
